@@ -33,19 +33,28 @@ func initializeParameters() string {
 	return apiKeyFinnhub
 }
 
-func getStockSymbolJson(apiKeyFiinhub string) {
+func getStockSymbolJson(apiKeyFiinhub string) []finnhub.StockSymbol {
 	cfg := finnhub.NewConfiguration()
 	cfg.AddDefaultHeader("X-Finnhub-Token", apiKeyFiinhub)
 	finnhubClient := finnhub.NewAPIClient(cfg).DefaultApi
 	res, _, err := finnhubClient.StockSymbols(context.Background()).Exchange("US").Execute()
-	if err == nil {
-		fmt.Printf("%+v\n", res)
-	} else {
+	if err != nil {
 		fmt.Println(err)
 	}
+	return res
+}
+
+func loadIntoDatabase(stockSymbolsArray []finnhub.StockSymbol) int {
+	status := 200
+	for _, stockSymbol := range stockSymbolsArray {
+		fmt.Printf("%+v\n", stockSymbol.GetDescription())
+		status = 200
+	}
+	return status
 }
 
 func main() {
 	apiKeyFinnhub := initializeParameters()
-	getStockSymbolJson(apiKeyFinnhub)
+	stockSymbolsArray := getStockSymbolJson(apiKeyFinnhub)
+	loadIntoDatabase(stockSymbolsArray)
 }
