@@ -1,3 +1,4 @@
 config.yml
 db_test.go
 testlogfile
+go.sum
