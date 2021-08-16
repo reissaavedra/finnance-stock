@@ -7,8 +7,7 @@ import (
 )
 
 type Stock struct {
-	// Id          int `pg:"pk_id"`
-	Symbol      string
+	Symbol      string `pg:"symbol_id"`
 	Description string
 	Currency    string
 	TypeStock   string

@@ -95,7 +95,7 @@ func loadIntoDatabase(stockSymbolsArray []finnhub.StockSymbol) {
 }
 
 func main() {
-	initializeDatabase()
+	go initializeDatabase()
 	finnhubApiKey := initializeParametersFinnhub()
 	stockSymbolsArray := getStockSymbolJson(finnhubApiKey)
 	loadIntoDatabase(stockSymbolsArray)
