@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"project/config"
 	"project/models"
 
@@ -14,7 +16,6 @@ import (
 func initializeParametersFinnhub() string {
 	var c config.Conf
 	finnhubApiKey := c.GetConf().FinnhubConf.FinnhubApiKey
-	fmt.Printf("%#v\n", finnhubApiKey)
 	return finnhubApiKey
 }
 
@@ -30,11 +31,19 @@ func initializeParametersPgDatabase() *pg.DB {
 	return db
 }
 
-func testPgConnection() {
+func initializeDatabase() {
 	db := initializeParametersPgDatabase()
 	defer db.Close()
-
-	createSchema(db)
+	errorCreateSchema := createSchema(db)
+	if errorCreateSchema != nil {
+		f, err := os.OpenFile("testlogfile", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			log.Fatalf("error opening file: %v", err)
+		}
+		defer f.Close()
+		log.SetOutput(f)
+		log.Println(errorCreateSchema)
+	}
 }
 
 func createSchema(db *pg.DB) error {
@@ -69,27 +78,25 @@ func getStockSymbolJson(apiKeyFiinhub string) []finnhub.StockSymbol {
 	return res
 }
 
-func loadIntoDatabase(stockSymbolsArray []finnhub.StockSymbol) int {
-	status := 200
+func loadIntoDatabase(stockSymbolsArray []finnhub.StockSymbol) {
+	stocks := []models.Stock{}
 	for _, stockSymbol := range stockSymbolsArray {
-		fmt.Printf("%+v\n", stockSymbol.GetDescription())
-		stock := newStock(stockSymbol)
-		fmt.Printf("%+v\n", *stock)
+		stock := models.NewStock(stockSymbol)
+		stocks = append(stocks, *stock)
 	}
-	return status
-}
 
-func newStock(stockSymbol finnhub.StockSymbol) *models.Stock {
-	stock := models.Stock{
-		Symbol:      stockSymbol.GetDisplaySymbol(),
-		Description: stockSymbol.GetDescription(),
-		Currency:    stockSymbol.GetCurrency(),
-		TypeStock:   stockSymbol.GetType(),
-		Figi:        stockSymbol.GetFigi(),
+	db := initializeParametersPgDatabase()
+	defer db.Close()
+
+	_, err := db.Model(&stocks).Insert()
+	if err != nil {
+		panic(err)
 	}
-	return &stock
 }
 
 func main() {
-	testPgConnection()
+	initializeDatabase()
+	finnhubApiKey := initializeParametersFinnhub()
+	stockSymbolsArray := getStockSymbolJson(finnhubApiKey)
+	loadIntoDatabase(stockSymbolsArray)
 }
