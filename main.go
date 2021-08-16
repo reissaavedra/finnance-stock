@@ -3,34 +3,59 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"log"
+	"project/config"
+	"project/models"
 
 	finnhub "github.com/Finnhub-Stock-API/finnhub-go/v2"
-	"gopkg.in/yaml.v2"
+	"github.com/go-pg/pg/v10"
+	"github.com/go-pg/pg/v10/orm"
 )
 
-type conf struct {
-	ApiKeyFinnhub string `yaml:"apiKeyFinnhub"`
+func initializeParametersFinnhub() string {
+	var c config.Conf
+	finnhubApiKey := c.GetConf().FinnhubConf.FinnhubApiKey
+	fmt.Printf("%#v\n", finnhubApiKey)
+	return finnhubApiKey
 }
 
-func (c *conf) getConf() *conf {
-	ymlFile, err := ioutil.ReadFile("./api-key-finnhub.yml")
-	if err != nil {
-		log.Printf("yamlFile.Get err   #%v ", err)
-	}
-	err = yaml.Unmarshal(ymlFile, c)
-	if err != nil {
-		log.Fatalf("Unmarshall: %v", err)
-	}
-	return c
+func initializeParametersPgDatabase() *pg.DB {
+	var c config.Conf
+	pgConfig := c.GetConf().DatabaseConf
+	db := pg.Connect(&pg.Options{
+		Addr:     pgConfig.PgHost + ":" + pgConfig.PgPort,
+		User:     pgConfig.PgUser,
+		Password: pgConfig.PgPassword,
+		Database: pgConfig.PgDatabase,
+	})
+	return db
 }
 
-func initializeParameters() string {
-	var c conf
-	c.getConf()
-	apiKeyFinnhub := c.ApiKeyFinnhub
-	return apiKeyFinnhub
+func testPgConnection() {
+	db := initializeParametersPgDatabase()
+	defer db.Close()
+
+	createSchema(db)
+}
+
+func createSchema(db *pg.DB) error {
+	models := []interface{}{
+		(*models.Stock)(nil),
+	}
+	for _, model := range models {
+		err := db.Model(model).DropTable(&orm.DropTableOptions{
+			IfExists: true,
+			Cascade:  true,
+		})
+		if err != nil {
+			return err
+		}
+
+		err = db.Model(model).CreateTable(nil)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func getStockSymbolJson(apiKeyFiinhub string) []finnhub.StockSymbol {
@@ -48,13 +73,23 @@ func loadIntoDatabase(stockSymbolsArray []finnhub.StockSymbol) int {
 	status := 200
 	for _, stockSymbol := range stockSymbolsArray {
 		fmt.Printf("%+v\n", stockSymbol.GetDescription())
-		status = 200
+		stock := newStock(stockSymbol)
+		fmt.Printf("%+v\n", *stock)
 	}
 	return status
 }
 
+func newStock(stockSymbol finnhub.StockSymbol) *models.Stock {
+	stock := models.Stock{
+		Symbol:      stockSymbol.GetDisplaySymbol(),
+		Description: stockSymbol.GetDescription(),
+		Currency:    stockSymbol.GetCurrency(),
+		TypeStock:   stockSymbol.GetType(),
+		Figi:        stockSymbol.GetFigi(),
+	}
+	return &stock
+}
+
 func main() {
-	apiKeyFinnhub := initializeParameters()
-	stockSymbolsArray := getStockSymbolJson(apiKeyFinnhub)
-	loadIntoDatabase(stockSymbolsArray)
+	testPgConnection()
 }
