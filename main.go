@@ -23,7 +23,7 @@ func initializeParametersPgDatabase() *pg.DB {
 	var c config.Conf
 	pgConfig := c.GetConf().DatabaseConf
 	db := pg.Connect(&pg.Options{
-		Addr:     pgConfig.PgHost + ":" + pgConfig.PgPort,
+		Addr:     fmt.Sprintf("%s:%s", pgConfig.PgHost, pgConfig.PgPort),
 		User:     pgConfig.PgUser,
 		Password: pgConfig.PgPassword,
 		Database: pgConfig.PgDatabase,
